@@ -26,6 +26,10 @@ CentOS (tested on 6.2):
 
 		yum install httpd php php-pear php-devel gcc pam-devel
 
+5. Allow httpd access to the PAM module in SELinux
+
+		setsebool -P allow_httpd_mod_auth_pam=1
+
 5. Restart Apache
 
 		service httpd restart
