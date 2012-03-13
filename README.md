@@ -9,6 +9,8 @@ CentOS (tested on 6.2):
 ------
 > *Note:* This is currently broken. I am getting a "System error (in pam_authenticate)"
 
+> Also, you will need to install php curl
+
 1. Install yum packages
 
 		yum install httpd php php-pear php-devel gcc pam-devel
