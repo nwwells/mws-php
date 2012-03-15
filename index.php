@@ -3,12 +3,7 @@
 require 'jobs.php';
 
 try { 
-  $job = get_job('Moab.10', 'adaptive');
-  if (gettype($job) == 'string') {
-    echo $job;
-  } else {
-    echo var_dump($job);
-  }
+  var_dump(get_jobs('adaptive'));
 } catch (Exception $e) {
   echo $e->getMessage();
 }
