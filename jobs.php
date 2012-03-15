@@ -42,7 +42,7 @@ function get_curl($resource) {
 }
 
 
-function get_job($job_id, $username, $decode = true) {
+function get_job($job_id, $username) {
   
   #Get job object from MWS
   $ch = get_curl("jobs/" . $job_id);
