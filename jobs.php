@@ -18,13 +18,19 @@ if (!defined('MWS_USER')) define('MWS_USER', 'admin');
 if (!defined('MWS_PASS')) define('MWS_PASS', 'adminpw');
 
 # utility function to get a CURL configured for MWS
-function get_curl($resource) {
+function run_curl($resource, $config_closure=null, $info_store=null) {
   $url = MWS_SCHEME . '://' . MWS_HOST . ':' . MWS_PORT . MWS_BASE . $resource;
   $userpwd = MWS_USER . ':' . MWS_PASS;
 
   $ch = curl_init($url);
+
+  # do call specific configuration
+  if(isset($config_closure)) call_user_func($config_closure, $ch);
+
+  # These options should override input.
   curl_setopt($ch, CURLOPT_HTTPAUTH, CURLAUTH_BASIC);
   curl_setopt($ch, CURLOPT_USERPWD, $userpwd);
+  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
   # TODO - this is improper from a security perspective, since
   # we essentially trust any certificate and, therefore, identity
   # of the MWS server is not guaranteed
@@ -38,28 +44,56 @@ function get_curl($resource) {
   #curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
   #curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
   #curl_setopt($ch, CURLOPT_CAINFO, "/path/to/certificate/authority");
-  return $ch;
+
+  $resp = curl_exec($ch);
+  $info_store = curl_getinfo($ch);
+  curl_close($ch);
+
+  if($info_store['http_code'] == 401) {
+    throw new MwsAuthenticationException('MWS has refused access to the configured username/password');
+  }
+
+  return json_decode($resp);
 }
 
 
 function get_job($job_id, $username) {
-  
   #Get job object from MWS
-  $ch = get_curl("jobs/" . $job_id);
-  curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-  $resp = curl_exec($ch);
-  $info = curl_getinfo($ch);
-  curl_close($ch);
+  $job = run_curl("jobs/" . $job_id);
 
-  if($info['http_code'] == 401) {
-    throw new MwsAuthenticationException('MWS has refused access to the configured username/password');
-  }
-
-  $job = json_decode($resp);
-  if($job->user != $username) {
-    throw new UserAuthorizationException("User '".$username."' is not authorized to see job '".$job_id."'");
-  } else {
+  if (check_user($username, $job)) {
     return $job;
+  }
+}
+
+function get_jobs($username) {
+
+  #Get job objects from MWS
+  $jobs_resp = run_curl("jobs");
+
+  $user_jobs = array();
+  foreach ($jobs_resp->results as $job) {
+	 if (check_user($username, $job, true)) {
+	   array_push($user_jobs, $job);
+	 }
+  }
+  $jobs_resp->results = $user_jobs;
+  $jobs_resp->resultCount = count($user_jobs);
+  # will need to change this when we support max and offset
+  $jobs_resp->totalCount = $jobs_resp->resultCount;
+
+  return $jobs_resp;
+}
+
+function check_user($username, $job, $silent=false) {
+  if($job->user == $username) {
+    return true;
+  } else {
+    if ($silent) {
+      return false;
+    } else {
+      throw new UserAuthorizationException("User '".$username."' is not authorized to see job '".$job_id."'");
+    }
   }
 }
 
